@@ -20,9 +20,9 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::post('/chat/ask', [ChatController::class, 'ask']);
-Route::post('/chat/clear', [ChatController::class, 'clear']);
-Route::post('/chat/load', [ChatController::class, 'load']);
-Route::post('/chat/config', [ChatController::class, 'ask']);
+// Route::post('/chat/ask', [ChatController::class, 'ask']);
+// Route::post('/chat/clear', [ChatController::class, 'clear']);
+// Route::post('/chat/load', [ChatController::class, 'load']);
+// Route::post('/chat/config', [ChatController::class, 'ask']);
 
 
