@@ -14,13 +14,14 @@ return new class extends Migration
         Schema::create('chatbots', function (Blueprint $table) {
             $table->uuid('chatbot_id')->primary();
             $table->string('name');
-            $table->string('description');
-            $table->string('input_placeholder');
+            $table->text('description');
+            $table->text('prompt');
+            $table->text('openai_api_key');
+            $table->string('color');
+            $table->string('placeholder');
+            $table->string('btn_name');
+            $table->boolean('show_btn')->default(false);
             $table->string('first_message');
-            $table->string('floating_button_name');
-            $table->string('close_button_name');
-            $table->string('chatbot_color');
-            $table->boolean('show_button_label')->default(false);
             $table->enum('alignment', ['right', 'left']);
             $table->integer('horizontal_margin')->default(20);
             $table->integer('vertical_margin')->default(20);

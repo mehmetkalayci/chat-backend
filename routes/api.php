@@ -3,7 +3,8 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-use App\Http\Controllers\ChatController;
+use App\Http\Controllers\Api\ChatbotController;
+use App\Http\Middleware\JwtMiddleware;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,9 +21,22 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Route::post('/chat/ask', [ChatController::class, 'ask']);
-// Route::post('/chat/clear', [ChatController::class, 'clear']);
-// Route::post('/chat/load', [ChatController::class, 'load']);
-// Route::post('/chat/config', [ChatController::class, 'ask']);
+
+Route::prefix('chatbot')->group(function () {
+
+    // Chatbot ayarlarının yüklenmesi
+    Route::get('/{chatbotId}/settings', [ChatbotController::class, 'getSettings']);
 
 
+    // Kullanıcı ilk kullanıcı mı değil mi ayırt edilerek eski mesajların yüklenmesi
+    Route::post('load-messages', [ChatbotController::class, 'loadMessages']);
+
+    // Kullanıcıların soru sorması
+    Route::post('ask', [ChatbotController::class, 'askQuestion']);
+
+    // Eski mesajların silinmesi
+    Route::delete('delete-history', [ChatbotController::class, 'deleteHistory']);
+
+    // Ödeme yapılması
+    Route::post('payment', [ChatbotController::class, 'makePayment']);
+});
