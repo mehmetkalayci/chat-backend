@@ -6,17 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class Chatbot extends Model
 {
+    protected $primaryKey = 'chatbot_id';
+
     protected $fillable = [
-        'botId',
-        'botName',
+        'chatbot_id',
+        'name',
         'description',
         'labels',
         'color',
-        'showButtonLabel',
+        'show_button_label',
         'alignment',
-        'horizontalMargin',
-        'verticalMargin',
-        'loginUrl',
+        'horizontal_margin',
+        'vertical_margin',
+        'login_url',
         'prompt',
         'openai_api_key',
     ];
@@ -24,7 +26,7 @@ class Chatbot extends Model
     protected $casts = [
         'chatbot_id' => 'string',
         'labels' => 'json', // 'labels' sütunu bir JSON olarak saklanacak
-        'showButtonLabel' => 'boolean', // 'showButtonLabel' sütunu bir boolean olarak saklanacak
+        'show_button_label' => 'boolean', // 'showButtonLabel' sütunu bir boolean olarak saklanacak
     ];
 
 

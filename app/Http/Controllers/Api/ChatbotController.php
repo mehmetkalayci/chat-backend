@@ -14,36 +14,30 @@ use App\Models\QuizQuestion;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
+use Illuminate\Support\Facades\Http;
+
 
 class ChatbotController extends Controller
 {
     /**
-     * Bu fonksiyonu önderin sistemiyle doğrulayacak şekilde değiştireceğiz
+     * https://api.terapivitrini.com/api/auth/member/control aracılığıyla gelen token değerini kontrol ediyoruz
      */
     private function validateTokenAndExtractData($token)
     {
-        $secretKey = env('JWT_SECRET');
+        $response = Http::withHeaders([
+            'Authorization' => "Bearer $token",
+        ])->post('https://api.terapivitrini.com/api/auth/member/control');
 
-        try {
-            // JWT token'ı doğrulayın ve verileri çıkarın
-            $decoded = JWT::decode($token, new Key($secretKey, 'HS256'));
-        } catch (\Firebase\JWT\BeforeValidException $e) {
-            return ['error' => 'Token henüz geçerli değil.'];
-        } catch (\Firebase\JWT\ExpiredException $e) {
-            return ['error' => 'Token süresi dolmuş.'];
-        } catch (\Exception $e) {
+        if ($response->successful()) {
+            $data = $response->json();
+
+            // İstenilen değerler
+            $userId = $data['id'];
+        } else {
             return ['error' => 'Token geçerli değil.'];
         }
 
-        // Token içindeki verilere erişebilirsiniz
-        $userId = $decoded->sub;
-
-        // İşlemlerinizi yapabilirsiniz, örneğin:
-        // - Veritabanı sorguları
-        // - Kullanıcıya ait kayıtları almak
-        // - ...
-
-        return ['user_id' => $userId]; // İstediğiniz verileri döndürün
+        return ['user_id' => $userId];
     }
 
     public function getSettings($chatbotId)
@@ -55,7 +49,20 @@ class ChatbotController extends Controller
             return response()->json(['message' => 'Chatbot bulunamadı.'], 404);
         }
 
-        return response()->json($chatbot);
+        $chatbotSettings = [
+            'botId' => $chatbot->chatbot_id,
+            'botName' => $chatbot->name,
+            'description' => $chatbot->description,
+            'labels' => json_decode($chatbot->labels, true), // JSON verisini diziye çeviriyoruz
+            'color' => $chatbot->color,
+            'showButtonLabel' => $chatbot->show_button_label,
+            'alignment' => $chatbot->alignment,
+            'horizontalMargin' => $chatbot->horizontal_margin,
+            'verticalMargin' => $chatbot->vertical_margin,
+            'loginUrl' => $chatbot->login_url,
+        ];
+
+        return response()->json($chatbotSettings);
     }
 
     public function loadMessages(Request $request)
@@ -73,8 +80,18 @@ class ChatbotController extends Controller
             // Token doğrulandı ve veriler alındı
             $userId = $result['user_id'];
 
-            // Chatbot kullanıcılarını kontrol et
-            $userExists = ChatbotUser::where('chatbot_user_id', $userId)->exists();
+            // Chatbot kullanıcısını kontrol et
+            // Kullanıcı veritabanında olmayabilir. Ama token doğrulandığı için böyle bir kullanıcı var.
+            // Kullanıcı ilk kez sistemi kullanmaya gelmiş.
+            // Bu kullanıcı işlem yapabilir.
+            $userExists = ChatbotUser::where('chatbot_user_id', $userId)->exists(); // Kullanıcı bizde kayıtlı mı?
+            $chatbotExists = Chatbot::where('chatbot_id', $chatbotId)->exists(); // İstek yapmak istediği chatbot hakikaten var mı?
+
+            if ($userExists && $chatbotExists) {
+                dd('ok devam');
+            } else {
+                dd([$userExists, $chatbotExists]);
+            }
 
             // Kullanıcı ChatbotUser tablosunda yok ise ve token valid olduğu için bu kullanıcı ilk kez gelmiştir
             // Kullanıcıya quiz sorular sorulacak, yani hasQuizTaken değeri false olacak
@@ -83,7 +100,7 @@ class ChatbotController extends Controller
             $hasQuizTaken = $userExists;
 
             $quizQuestions = [];
-            
+
             if (!$hasQuizTaken) {
                 // Quiz verilerini al
                 $quiz = Quiz::where('chatbot_id', $chatbotId)->first();
@@ -91,16 +108,24 @@ class ChatbotController extends Controller
                 if ($quiz) {
                     // Quiz sorularını çek
                     $quizId = $quiz->id;
-                    $quizQuestions = QuizQuestion::where('quiz_id', $quizId)->pluck('question')->toArray();
+                    $quizQuestionsTemp = QuizQuestion::where('quiz_id', $quizId)->select('id', 'type', 'value')->get()->toArray();
+
+                    // Soruları veri yapısına ekleyin
+                    foreach ($quizQuestionsTemp as $index => $question) {
+                        $questionData = [
+                            'type' => $question['type'],
+                            'value' => $question['value'],
+                        ];
+
+                        $quizQuestions[] = $questionData;
+                    }
                 } else {
                     $quizQuestions = [];
                 }
             }
 
             // Kullanıcının mesajlarını al
-            $messages = ChatbotLog::where('chatbot_user_id', $userId)
-                ->orderBy('created_at', 'asc') // Sıralamayı isteğinize göre ayarlayın
-                ->get();
+            $messages = ChatbotLog::where('chatbot_user_id', $userId)->orderBy('created_at', 'asc')->get();
 
             // Geriye dönecek veri yapısını oluşturun
             $responseData = [
