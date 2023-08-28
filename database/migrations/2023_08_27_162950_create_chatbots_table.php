@@ -12,20 +12,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('chatbots', function (Blueprint $table) {
-            $table->uuid('chatbot_id')->primary();
+            $table->uuid('chatbot_id');
             $table->string('name');
             $table->text('description');
-            $table->text('prompt');
-            $table->text('openai_api_key');
+            $table->json('labels');
             $table->string('color');
-            $table->string('placeholder');
-            $table->string('btn_name');
-            $table->boolean('show_btn')->default(false);
-            $table->string('first_message');
+            $table->boolean('show_button_label');
             $table->enum('alignment', ['right', 'left']);
-            $table->integer('horizontal_margin')->default(20);
-            $table->integer('vertical_margin')->default(20);
+            $table->integer('horizontal_margin');
+            $table->integer('vertical_margin');
             $table->string('login_url');
+            $table->longText('prompt');
+            $table->text('openai_api_key');
             $table->timestamps();
         });
     }

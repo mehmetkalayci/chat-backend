@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('quiz_questions', function (Blueprint $table) {
             $table->id();
             $table->uuid('quiz_id');
-            $table->text('question');
+            $table->enum('type', ['message', 'question']);
+            $table->text('value');
             $table->timestamps();
         });
     }
