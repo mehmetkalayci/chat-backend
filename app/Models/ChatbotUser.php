@@ -6,10 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChatbotUser extends Model
 {
-    protected $fillable = ['chatbot_user_id'];
+    protected $table = 'chatbot_users';
+
+    protected $primaryKey = 'chatbot_user_id';
+
+    protected $fillable = ['chatbot_user_id', 'message_limit'];
 
     public function logs()
     {
-        return $this->hasMany(ChatbotLog::class, 'chatbot_user_id');
+        return $this->hasMany(ChatbotLog::class, 'chatbot_user_id', 'chatbot_user_id');
     }
 }

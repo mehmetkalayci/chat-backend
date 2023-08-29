@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('chatbot_users', function (Blueprint $table) {
             $table->unsignedBigInteger('chatbot_user_id');
+            $table->integer('message_limit')->default(0);
             $table->timestamps();
         });
     }

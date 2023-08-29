@@ -10,8 +10,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             ChatbotSeeder::class,
-            QuizSeeder::class,
-            QuizQuestionsSeeder::class,
+            ChatbotQuestionsSeeder::class,
         ]);
     }
 }

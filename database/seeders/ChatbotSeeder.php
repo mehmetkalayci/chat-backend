@@ -27,8 +27,9 @@ class ChatbotSeeder extends Seeder
             'horizontal_margin' => 40,
             'vertical_margin' => 40,
             'login_url' => 'https://terapivitrini.com/login',
-            'prompt' => 'Chatbotunuzu buraya tanımlayabilirsiniz.',
-            'openai_api_key' => 'YourAPIKeyHere',
+            'chatbot_prompt' => 'Chatbotunuzu buraya tanımlayabilirsiniz.',
+            'quiz_evaluation_prompt' => 'Uzman Bilişsel Davranışçı Terapist olarak davranın. Aşağıda verilen soru ve yanıtlardan oluşan psikolojik değerlendirme formunda yer alan bilgileri değerlendirin ve çözüm odaklı tanı koyun.',
+            'openai_api_key' => '',
         ]);
     }
 }

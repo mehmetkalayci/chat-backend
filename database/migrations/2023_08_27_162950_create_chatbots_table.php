@@ -22,7 +22,8 @@ return new class extends Migration
             $table->integer('horizontal_margin');
             $table->integer('vertical_margin');
             $table->string('login_url');
-            $table->longText('prompt');
+            $table->longText('chatbot_prompt');
+            $table->longText('quiz_evaluation_prompt');
             $table->text('openai_api_key');
             $table->timestamps();
         });

@@ -6,8 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChatbotLog extends Model
 {
-    protected $fillable = ['log_id', 'chatbot_id', 'message', 'variant', 'loading', 'chatbot_user_id'];
+    protected $table = 'chatbot_logs';
 
+    protected $primaryKey = 'log_id';
+
+    protected $fillable = ['chatbot_id', 'chatbot_user_id', 'message', 'variant', 'loading'];
+    
     protected $casts = [
         'log_id' => 'string',
         'chatbot_id' => 'string',
@@ -15,7 +19,7 @@ class ChatbotLog extends Model
 
     public function user()
     {
-        return $this->belongsTo(ChatbotUser::class, 'chatbot_user_id');
+        return $this->belongsTo(ChatbotUser::class, 'chatbot_user_id', 'chatbot_user_id');
     }
 
     public function chatbot()

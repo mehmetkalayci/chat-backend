@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Chatbot extends Model
 {
+    protected $table = 'chatbots';
+
     protected $primaryKey = 'chatbot_id';
 
     protected $fillable = [
-        'chatbot_id',
         'name',
         'description',
         'labels',
@@ -19,26 +20,26 @@ class Chatbot extends Model
         'horizontal_margin',
         'vertical_margin',
         'login_url',
-        'prompt',
+        'chatbot_prompt',
+        'quiz_evaluation_prompt',
         'openai_api_key',
     ];
 
     protected $casts = [
         'chatbot_id' => 'string',
-        'labels' => 'json', // 'labels' sütunu bir JSON olarak saklanacak
-        'show_button_label' => 'boolean', // 'showButtonLabel' sütunu bir boolean olarak saklanacak
+        'labels' => 'json',
+        'show_button_label' => 'boolean',
     ];
 
+    protected $hidden = ['openai_api_key', 'chatbot_prompt', 'quiz_evaluation_prompt', 'created_at', 'updated_at'];
 
-    protected $hidden = ['openai_api_key', 'created_at', 'updated_at'];
-
-    public function logs()
+    public function questions()
     {
-        return $this->hasMany(ChatbotLog::class, 'chatbot_id', 'chatbot_id');
+        return $this->hasMany(ChatbotQuestion::class, 'chatbot_id', 'chatbot_id');
     }
 
-    public function quizzes()
+    public function evaluations()
     {
-        return $this->hasMany(Quiz::class, 'chatbot_id', 'chatbot_id');
+        return $this->hasMany(ChatbotQuestionEvaluation::class, 'chatbot_id', 'chatbot_id');
     }
 }

@@ -11,11 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('quiz_questions', function (Blueprint $table) {
-            $table->id();
-            $table->uuid('quiz_id');
-            $table->enum('type', ['message', 'question']);
-            $table->text('value');
+        Schema::create('chatbot_question_responses', function (Blueprint $table) {
+            $table->id('chatbot_question_response_id');
+            $table->uuid('chatbot_id');
+            $table->unsignedBigInteger('chatbot_user_id');
+            $table->text('question');
+            $table->text('answer');
             $table->timestamps();
         });
     }
@@ -25,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('quiz_questions');
+        Schema::dropIfExists('chatbot_question_responses');
     }
 };
