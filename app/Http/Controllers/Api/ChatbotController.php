@@ -7,15 +7,15 @@ use Illuminate\Http\Request;
 
 use App\Models\Chatbot;
 use App\Models\ChatbotLog;
+use App\Models\ChatbotQuizResponse;
 use App\Models\ChatbotUser;
-use App\Models\Quiz;
-use App\Models\QuizQuestion;
+use App\Models\ChatbotQuestion;
+use App\Models\ChatbotQuestionEvaluation;
+use App\Models\ChatbotQuestionResponse;
 
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
-
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-
+use GuzzleHttp\Client;
 
 class ChatbotController extends Controller
 {
@@ -26,7 +26,9 @@ class ChatbotController extends Controller
     {
         $response = Http::withHeaders([
             'Authorization' => "Bearer $token",
-        ])->post('https://api.terapivitrini.com/api/auth/member/control');
+        ])
+            ->timeout(60)
+            ->post('https://api.terapivitrini.com/api/auth/member/control');
 
         if ($response->successful()) {
             $data = $response->json();
@@ -34,19 +36,65 @@ class ChatbotController extends Controller
             // İstenilen değerler
             $userId = $data['id'];
         } else {
-            return ['error' => 'Token geçerli değil.'];
+            return [
+                'type' => 'error',
+                'message' => 'Token geçerli değil! Oturumunuzun süresi doldu ya da geçersiz oturum. Lütfen tekrar giriş yapın.'
+            ];
         }
 
         return ['user_id' => $userId];
     }
 
+    /**
+     * ChatGPT'ye soru sormak için kullan
+     */
+    private function evaluateQuizViaChatGPT($systemPrompt, $userPrompt)
+    {
+        try {
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+                    'Content-Type' => 'application/json'
+                ])
+                ->timeout(60)
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    "model" => "gpt-3.5-turbo",
+                    "temperature" => 1,
+                    "messages" => [
+                        [
+                            "role" => "system",
+                            "content" => $systemPrompt
+                        ],
+                        [
+                            "role" => "user",
+                            "content" => $userPrompt
+                        ]
+                    ],
+                    //"max_tokens" => 1000
+                ]);
+
+            return $response->json(); //['choices'][0]['message']['content'];
+        } catch (\Throwable $th) {
+            return response()->json([
+                'type' => 'error',
+                'message' => $th->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Chatbot ayarlarını çekmek için kullan
+     */
     public function getSettings($chatbotId)
     {
         // Verilen UUID ile eşleşen bir chatbotu çekmek için
         $chatbot = Chatbot::where('chatbot_id', $chatbotId)->first();
 
         if (!$chatbot) {
-            return response()->json(['message' => 'Chatbot bulunamadı.'], 404);
+            return response()->json([
+                'type' => 'error',
+                'message' => "Chatbot ($chatbotId) bulunamadı."
+            ], 404);
         }
 
         $chatbotSettings = [
@@ -65,75 +113,63 @@ class ChatbotController extends Controller
         return response()->json($chatbotSettings);
     }
 
-    public function loadMessages(Request $request)
+    // Token ile gelen kullanıcı daha önceden bu chatbota ait soruları yanıtlamış mı?
+    public function haveChatbotQuestionsReplied(Request $request)
     {
-        // Token'ı alın
         $token = $request->token;
         $chatbotId = $request->chatbotId;
 
         $result = $this->validateTokenAndExtractData($token);
 
-        if (isset($result['error'])) {
+        if (isset($result['type']) && $result['type'] === 'error') {
             // Token geçerli değil veya bir hata oluştu
             return response()->json($result, 401);
         } else {
             // Token doğrulandı ve veriler alındı
             $userId = $result['user_id'];
 
-            // Chatbot kullanıcısını kontrol et
-            // Kullanıcı veritabanında olmayabilir. Ama token doğrulandığı için böyle bir kullanıcı var.
-            // Kullanıcı ilk kez sistemi kullanmaya gelmiş.
-            // Bu kullanıcı işlem yapabilir.
-            $userExists = ChatbotUser::where('chatbot_user_id', $userId)->exists(); // Kullanıcı bizde kayıtlı mı?
-            $chatbotExists = Chatbot::where('chatbot_id', $chatbotId)->exists(); // İstek yapmak istediği chatbot hakikaten var mı?
+            // Kullanıcı daha önce bu chatbota ait soruları yanıtlamış mı kontrol et
+            $hasReplied = ChatbotQuestionEvaluation::where('chatbot_id', $chatbotId)->where('chatbot_user_id', $userId)->exists();
 
-            if ($userExists && $chatbotExists) {
-                dd('ok devam');
-            } else {
-                dd([$userExists, $chatbotExists]);
+            $questions = [];
+            if (!$hasReplied) {
+                // Kullanıcı bu chatbota ait soruları daha önce yanıtlamamış, soruları getir
+                $questions = ChatbotQuestion::where('chatbot_id', $chatbotId)->get();
             }
 
-            // Kullanıcı ChatbotUser tablosunda yok ise ve token valid olduğu için bu kullanıcı ilk kez gelmiştir
-            // Kullanıcıya quiz sorular sorulacak, yani hasQuizTaken değeri false olacak
+            $responseData = [
+                'chatbotId' => $chatbotId,
+                'userId' => $userId,
+                'hasChatbotQuestionsReplied' => $hasReplied,
+                'chatbotQuestions' => $questions,
+            ];
 
-            // Kullanıcı quiz sorularını cevapladığı zaman kullanıcıyı ChatbotUser tablosuna ekleyeceğiz
-            $hasQuizTaken = $userExists;
+            // Kullanıcı daha önce soruları yanıtlamış
+            return response()->json($responseData);
+        }
+    }
 
-            $quizQuestions = [];
+    public function loadHistory(Request $request)
+    {
+        // Token'ı alın
+        $token = $request->token;
 
-            if (!$hasQuizTaken) {
-                // Quiz verilerini al
-                $quiz = Quiz::where('chatbot_id', $chatbotId)->first();
+        $result = $this->validateTokenAndExtractData($token);
 
-                if ($quiz) {
-                    // Quiz sorularını çek
-                    $quizId = $quiz->id;
-                    $quizQuestionsTemp = QuizQuestion::where('quiz_id', $quizId)->select('id', 'type', 'value')->get()->toArray();
-
-                    // Soruları veri yapısına ekleyin
-                    foreach ($quizQuestionsTemp as $index => $question) {
-                        $questionData = [
-                            'type' => $question['type'],
-                            'value' => $question['value'],
-                        ];
-
-                        $quizQuestions[] = $questionData;
-                    }
-                } else {
-                    $quizQuestions = [];
-                }
-            }
+        if (isset($result['type']) && $result['type'] === 'error') {
+            // Token geçerli değil veya bir hata oluştu
+            return response()->json($result, 401);
+        } else {
+            // Token doğrulandı ve veriler alındı
+            $userId = $result['user_id'];
 
             // Kullanıcının mesajlarını al
             $messages = ChatbotLog::where('chatbot_user_id', $userId)->orderBy('created_at', 'asc')->get();
 
             // Geriye dönecek veri yapısını oluşturun
             $responseData = [
-                'chatbotId' => $chatbotId,
                 'userId' => $userId,
-                'hasQuizTaken' => $hasQuizTaken,
-                'quizQuestions' => $quizQuestions,
-                'remainingMessages' => 10, // Kalan mesaj sayısını isteğinize göre ayarlayın
+                //'messageLimit' => 10,
                 'messages' => [],
             ];
 
@@ -153,51 +189,144 @@ class ChatbotController extends Controller
         }
     }
 
-    public function deleteMessage(Request $request)
+    public function deleteHistory(Request $request)
     {
-        // Örnek bir mesajı silmek için
-        $messageId = $request->input('message_id');
-        $message = ChatbotLog::find($messageId);
-        if (!$message) {
-            return response()->json(['message' => 'Mesaj bulunamadı.'], 404);
-        }
+        $token = $request->token;
 
-        $message->delete();
-        return response()->json(['message' => 'Mesaj başarıyla silindi.']);
+        $result = $this->validateTokenAndExtractData($token);
+
+        if (isset($result['type']) && $result['type'] === 'error') {
+            // Token geçerli değil veya bir hata oluştu
+            return response()->json($result, 401);
+        } else {
+            // Token doğrulandı ve veriler alındı
+            $userId = $result['user_id'];
+
+            // Kullanıcıya ait tüm ChatbotLog kayıtlarını sil
+            ChatbotLog::where('chatbot_user_id', $userId)->delete();
+
+            return response()->json(['message' => 'Mesaj başarıyla silindi.']);
+        }
     }
 
     public function makePayment(Request $request)
     {
-        // Örnek bir ödeme işlemi kaydetmek için
-        $data = $request->validate([
-            'user_id' => 'required',
-            'amount' => 'required',
-            // Diğer gerekli alanlar
-        ]);
+        // TODO: Ödeme işlemleri yapılacak
+        return null;
+    }
 
-        // Ödeme kaydını veritabanına ekleyin
-        // Ödeme işlemini eklemek için gerekli işlemleri yapabilirsiniz.
+    public function evaluateTest(Request $request)
+    {
+        // request içerisindeki token, chatbotId, questions ve answers değerlerini alın
+        $token = $request->token;
+        $chatbotId = $request->chatbotId;
+        $questions = $request->questions;
+        $answers = $request->answers;
 
-        return response()->json(['message' => 'Ödeme başarıyla kaydedildi.']);
+        // Token'ı doğrulayın ve kullanıcı verilerini alın
+        $result = $this->validateTokenAndExtractData($token);
+
+        // Kullanıcı verilerini alın
+        if (isset($result['type']) && $result['type'] === 'error') {
+            // Token geçerli değil veya bir hata oluştu
+            return response()->json($result, 401);
+        } else {
+            // Token doğrulandı ve veriler alındı
+            $userId = $result['user_id'];
+
+            $chatbot = Chatbot::where('chatbot_id', $chatbotId)->first(); // İstek yapmak istediği chatbot hakikaten var mı?
+            if (!$chatbot) {
+                return response()->json([
+                    "type" => "error",
+                    "message" => "Bu chatbot ($chatbotId) sistemden kaldırılmış."
+                ], 404);
+            }
+
+            // Sorular ve cevapları eşleştirip yeni bir dizi oluşturun
+            $combined = array_map(function ($question, $answer) {
+                return 'Soru: ' . $question . '\nCevap: ' . $answer;
+            }, $questions, $answers);
+
+            // Sorular ve cevapları eşleştirip yeni bir dizi oluşturulan dizi içerisindeki elemanları birleştirin ve string haline getirin
+            $userQuestionsAndAnswersToEvaluate = implode("\n", $combined);
+
+            // Chatbot nesnesi içinden soruları değerlendirmek için kullanılacak olan quiz_evaluation_prompt değerini alın
+            $quizEvaluationPrompt = $chatbot->quiz_evaluation_prompt;
+
+            // Quiz promptunu kullanarak kullanıcının cevaplarını chatgpt ile değerlendirin
+            $evaluationOfTest = $this->evaluateQuizViaChatGPT($quizEvaluationPrompt, $userQuestionsAndAnswersToEvaluate);
+
+            // Değerlendirme sonucunu kontrol et ve kayıt işlemlerini yap eğer hata varsa hata mesajını döndür
+            if (!isset($evaluationOfTest['choices'][0]['message']['content'])) {
+                return response()->json([
+                    'type' => 'error',
+                    'message' => "($chatbot->name) ile değerlendirme yapılırken bir hata oluştu."
+                ], 500);
+            }
+
+            // Kayıt işlemleri başlasın
+            DB::beginTransaction();
+
+            try {
+                // Kullanıcıyı kaydet veya varsa geç
+                $user = ChatbotUser::firstOrCreate(['chatbot_user_id' => $userId]);
+
+                // Kullanıcının chatbot sorularını ait cevaplarının yapay zeka tarafından değerlendirmesini kaydedin
+                ChatbotQuestionEvaluation::updateOrInsert(
+                    [
+                        'chatbot_id' => $chatbotId,
+                        'chatbot_user_id' => $userId,
+                        'evaluation' => $evaluationOfTest['choices'][0]['message']['content'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+
+                // Kullanıcının chatbot sorularına ait cevaplarını kaydedin
+                foreach ($questions as $key => $value) {
+                    ChatbotQuestionResponse::updateOrInsert(
+                        [
+                            'chatbot_id' => $chatbotId,
+                            'chatbot_user_id' => $userId,
+                            'question' => $value,
+                            'answer' => $answers[$key],
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]
+                    );
+                }
+
+                // İşlem başarılı, commit yap
+                DB::commit();
+
+                // Chatbot cevabını döndür
+                return response()->json(['message' => $evaluationOfTest['choices'][0]['message']['content']]);
+            } catch (\Throwable $th) {
+                // İşlem başarısız oldu, geri al
+                DB::rollback();
+
+                return response()->json([
+                    'type' => 'error',
+                    'message' => 'İşlem sırasında bir hata oluştu: ' . $th->getMessage(),
+                ], 500);
+            }
+        }
     }
 
     public function askQuestion(Request $request)
     {
-        // Örnek bir soru sormak için
-        $data = $request->validate([
-            'user_id' => 'required',
-            'quiz_id' => 'required',
-            'question_id' => 'required',
-            'user_answer' => 'required',
-            // Diğer gerekli alanlar
-        ]);
+        $token = $request->token;
+        $result = $this->validateTokenAndExtractData($token);
 
-        // Kullanıcının cevabını kaydedin
-        $response = new ChatbotQuizResponse($data);
-        $response->save();
+        if (isset($result['type']) && $result['type'] === 'error') {
+            // Token geçerli değil veya bir hata oluştu
+            return response()->json($result, 401);
+        } else {
+            // Token doğrulandı ve veriler alındı
+            $userId = $result['user_id'];
 
-        // İlgili sorunun cevabını kontrol etmek ve gerekli işlemleri yapmak için daha fazla kod ekleyebilirsiniz.
 
+        }
         return response()->json(['message' => 'Soru cevabı başarıyla kaydedildi.']);
     }
 }

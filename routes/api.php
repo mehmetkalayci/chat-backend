@@ -27,15 +27,20 @@ Route::prefix('chatbot')->group(function () {
     // Chatbot ayarlarının yüklenmesi
     Route::get('/{chatbotId}/settings', [ChatbotController::class, 'getSettings']);
 
+    // Kullanıcı chatbot sorularını daha önceden yanıtladı mı?
+    Route::post('have-chatbot-questions-replied', [ChatbotController::class, 'haveChatbotQuestionsReplied']);
 
     // Kullanıcı ilk kullanıcı mı değil mi ayırt edilerek eski mesajların yüklenmesi
-    Route::post('load-messages', [ChatbotController::class, 'loadMessages']);
+    Route::post('load-history', [ChatbotController::class, 'loadHistory']);
+    
+    // Eski mesajların silinmesi
+    Route::delete('delete-history', [ChatbotController::class, 'deleteHistory']);
+
+    // Kullanıcıların test sonuçlarını değerlendirme işlemi
+    Route::post('evaluate-test', [ChatbotController::class, 'evaluateTest']);
 
     // Kullanıcıların soru sorması
     Route::post('ask', [ChatbotController::class, 'askQuestion']);
-
-    // Eski mesajların silinmesi
-    Route::delete('delete-history', [ChatbotController::class, 'deleteHistory']);
 
     // Ödeme yapılması
     Route::post('payment', [ChatbotController::class, 'makePayment']);
