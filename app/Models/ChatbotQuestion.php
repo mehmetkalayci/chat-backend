@@ -19,6 +19,11 @@ class ChatbotQuestion extends Model
         'value',
     ];
 
+    protected $hidden = [
+        'created_at',
+        'updated_at',
+    ];
+
     public function chatbot()
     {
         return $this->belongsTo(Chatbot::class, 'chatbot_id', 'chatbot_id');

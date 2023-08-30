@@ -10,7 +10,15 @@ class ChatbotUser extends Model
 
     protected $primaryKey = 'chatbot_user_id';
 
-    protected $fillable = ['chatbot_user_id', 'message_limit'];
+    protected $fillable = [
+        'chatbot_user_id',
+        'message_limit'
+    ];
+
+    protected $hidden = [
+        'created_at',
+        'updated_at',
+    ];
 
     public function logs()
     {

@@ -10,8 +10,15 @@ class ChatbotLog extends Model
 
     protected $primaryKey = 'log_id';
 
-    protected $fillable = ['chatbot_id', 'chatbot_user_id', 'message', 'variant', 'loading'];
-    
+    protected $fillable = [
+        'log_id',
+        'chatbot_id',
+        'chatbot_user_id',
+        'message',
+        'variant',
+        'loading'
+    ];
+
     protected $casts = [
         'log_id' => 'string',
         'chatbot_id' => 'string',

@@ -31,7 +31,13 @@ class Chatbot extends Model
         'show_button_label' => 'boolean',
     ];
 
-    protected $hidden = ['openai_api_key', 'chatbot_prompt', 'quiz_evaluation_prompt', 'created_at', 'updated_at'];
+    protected $hidden = [
+        'openai_api_key',
+        'chatbot_prompt',
+        'quiz_evaluation_prompt',
+        'created_at',
+        'updated_at'
+    ];
 
     public function questions()
     {

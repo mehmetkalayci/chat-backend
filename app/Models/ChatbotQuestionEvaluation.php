@@ -19,6 +19,11 @@ class ChatbotQuestionEvaluation extends Model
         'evaluation'
     ];
 
+    protected $hidden = [
+        'created_at',
+        'updated_at',
+    ];
+    
     public function user()
     {
         return $this->belongsTo(ChatbotUser::class, 'chatbot_user_id', 'chatbot_user_id');
