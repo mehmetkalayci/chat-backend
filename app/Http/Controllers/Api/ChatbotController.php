@@ -140,7 +140,6 @@ class ChatbotController extends Controller
             $responseData = [
                 'chatbotId' => $chatbotId,
                 'userId' => $userId,
-                'hasChatbotQuestionsReplied' => $hasReplied,
                 'chatbotQuestions' => $questions,
             ];
 
@@ -220,8 +219,7 @@ class ChatbotController extends Controller
         // request içerisindeki token, chatbotId, questions ve answers değerlerini alın
         $token = $request->token;
         $chatbotId = $request->chatbotId;
-        $questions = $request->questions;
-        $answers = $request->answers;
+        $questionsAndAnswers = $request->questionsAndAnswers;
 
         // Token'ı doğrulayın ve kullanıcı verilerini alın
         $result = $this->validateTokenAndExtractData($token);
@@ -242,19 +240,18 @@ class ChatbotController extends Controller
                 ], 404);
             }
 
-            // Sorular ve cevapları eşleştirip yeni bir dizi oluşturun
-            $combined = array_map(function ($question, $answer) {
-                return 'Soru: ' . $question . '\nCevap: ' . $answer;
-            }, $questions, $answers);
+            $questionsAndAnswersString = collect($questionsAndAnswers)->map(function ($item, $key) {
+                if (isset($item['value'], $item['answer'])) {
+                    return "Soru " . ($key + 1) . ": " . $item['value'] . "\nCevap " . ($key + 1) . ": " . $item['answer'];
+                }
+            })->implode("\n\n");
 
-            // Sorular ve cevapları eşleştirip yeni bir dizi oluşturulan dizi içerisindeki elemanları birleştirin ve string haline getirin
-            $userQuestionsAndAnswersToEvaluate = implode("\n", $combined);
 
             // Chatbot nesnesi içinden soruları değerlendirmek için kullanılacak olan quiz_evaluation_prompt değerini alın
             $quizEvaluationPrompt = $chatbot->quiz_evaluation_prompt;
 
             // Quiz promptunu kullanarak kullanıcının cevaplarını chatgpt ile değerlendirin
-            $evaluationOfTest = $this->evaluateQuizViaChatGPT($quizEvaluationPrompt, $userQuestionsAndAnswersToEvaluate);
+            $evaluationOfTest = $this->evaluateQuizViaChatGPT($quizEvaluationPrompt, $questionsAndAnswersString);
 
             // Değerlendirme sonucunu kontrol et ve kayıt işlemlerini yap eğer hata varsa hata mesajını döndür
             if (!isset($evaluationOfTest['choices'][0]['message']['content'])) {
@@ -283,13 +280,13 @@ class ChatbotController extends Controller
                 );
 
                 // Kullanıcının chatbot sorularına ait cevaplarını kaydedin
-                foreach ($questions as $key => $value) {
+                foreach ($questionsAndAnswers as $key => $item) {
                     ChatbotQuestionResponse::updateOrInsert(
                         [
                             'chatbot_id' => $chatbotId,
                             'chatbot_user_id' => $userId,
-                            'question' => $value,
-                            'answer' => $answers[$key],
+                            'question' => $item['value'],
+                            'answer' => $item['answer'],
                             'created_at' => now(),
                             'updated_at' => now(),
                         ]
@@ -316,6 +313,8 @@ class ChatbotController extends Controller
     public function askQuestion(Request $request)
     {
         $token = $request->token;
+        $chatbotId = $request->chatbotId;
+        $question = $request->question;
         $result = $this->validateTokenAndExtractData($token);
 
         if (isset($result['type']) && $result['type'] === 'error') {
@@ -325,7 +324,32 @@ class ChatbotController extends Controller
             // Token doğrulandı ve veriler alındı
             $userId = $result['user_id'];
 
+            // chatbotId değeri ile eşleşen bir chatbot var mı?
+            $chatbot = Chatbot::where('chatbot_id', $chatbotId)->first();
+            if (!$chatbot) {
+                return response()->json([
+                    'type' => 'error',
+                    'message' => "Chatbot ($chatbotId) bulunamadı."
+                ], 404);
+            }
 
+            // $chatbot nesnesine ait chatbot_prompt değerini alın
+            $chatbotPrompt = $chatbot->chatbot_prompt;
+
+            // ChatGPT'ye soruyu sor
+            $response = $this->evaluateQuizViaChatGPT($chatbotPrompt, $question);
+
+            // ChatGPT'den gelen cevabı kaydet
+            ChatbotLog::create([
+                'log_id' => (string) \Illuminate\Support\Str::uuid(),
+                'chatbot_id' => $chatbotId,
+                'chatbot_user_id' => $userId,
+                'variant' => 'chatbot',
+                'message' => $response['choices'][0]['message']['content'],
+            ]);
+
+            // ChatGPT'den gelen cevabı döndür
+            return response()->json(['message' => $response['choices'][0]['message']['content']]);
         }
         return response()->json(['message' => 'Soru cevabı başarıyla kaydedildi.']);
     }
