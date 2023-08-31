@@ -20,7 +20,6 @@ class ChatbotLog extends Model
     ];
 
     protected $casts = [
-        'log_id' => 'string',
         'chatbot_id' => 'string',
     ];
 
