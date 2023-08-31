@@ -34,7 +34,7 @@ Route::prefix('chatbot')->group(function () {
     Route::post('load-history', [ChatbotController::class, 'loadHistory']);
     
     // Eski mesajların silinmesi
-    Route::delete('delete-history', [ChatbotController::class, 'deleteHistory']);
+    Route::post('delete-history', [ChatbotController::class, 'deleteHistory']);
 
     // Kullanıcıların test sonuçlarını değerlendirme işlemi
     Route::post('evaluate-test', [ChatbotController::class, 'evaluateTest']);
@@ -44,4 +44,7 @@ Route::prefix('chatbot')->group(function () {
 
     // Ödeme yapılması
     Route::post('payment', [ChatbotController::class, 'makePayment']);
+
+    // Delete everything
+    Route::post('delete-everything', [ChatbotController::class, 'deleteEverything']);
 });

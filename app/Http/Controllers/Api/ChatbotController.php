@@ -38,7 +38,7 @@ class ChatbotController extends Controller
         } else {
             return [
                 'type' => 'error',
-                'message' => 'Token geçerli değil! Oturumunuzun süresi doldu ya da geçersiz oturum. Lütfen tekrar giriş yapın.'
+                'message' => "Oturumunuzun süresi doldu ya da geçersiz oturum. Lütfen tekrar giriş yapın. <a href='https://terapivitrini.com/login'> Giriş yapmak için tıklayın. </a>"
             ];
         }
 
@@ -204,7 +204,7 @@ class ChatbotController extends Controller
             // Kullanıcıya ait tüm ChatbotLog kayıtlarını sil
             ChatbotLog::where('chatbot_user_id', $userId)->delete();
 
-            return response()->json(['message' => 'Mesaj başarıyla silindi.']);
+            return response()->json(['message' => 'Sohbet geçmişi silindi.']);
         }
     }
 
@@ -279,7 +279,7 @@ class ChatbotController extends Controller
                     ]
                 );
 
-                // Kullanıcının chatbot sorularına ait cevaplarını kaydedin
+                // Kullanıcının chatbot sorularına ait cevaplarını ChatbotQuestionResponse kaydedin
                 foreach ($questionsAndAnswers as $key => $item) {
                     ChatbotQuestionResponse::updateOrInsert(
                         [
@@ -292,6 +292,36 @@ class ChatbotController extends Controller
                         ]
                     );
                 }
+
+                // Kullanıcının chatbot sorularına ait cevaplarını ChatbotLog kaydedin
+                foreach ($questionsAndAnswers as $key => $item) {
+                    ChatbotLog::create([
+                        'chatbot_id' => $chatbotId,
+                        'chatbot_user_id' => $userId,
+                        'variant' => 'chatbot',
+                        'message' => $item['value'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+
+                    ChatbotLog::create([
+                        'chatbot_id' => $chatbotId,
+                        'chatbot_user_id' => $userId,
+                        'variant' => 'user',
+                        'message' => $item['answer'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                ChatbotLog::create([
+                    'chatbot_id' => $chatbotId,
+                    'chatbot_user_id' => $userId,
+                    'variant' => 'chatbot',
+                    'message' => $evaluationOfTest['choices'][0]['message']['content'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
 
                 // İşlem başarılı, commit yap
                 DB::commit();
@@ -336,21 +366,89 @@ class ChatbotController extends Controller
             // $chatbot nesnesine ait chatbot_prompt değerini alın
             $chatbotPrompt = $chatbot->chatbot_prompt;
 
-            // ChatGPT'ye soruyu sor
-            $response = $this->evaluateQuizViaChatGPT($chatbotPrompt, $question);
 
-            // ChatGPT'den gelen cevabı kaydet
-            ChatbotLog::create([
-                'log_id' => (string) \Illuminate\Support\Str::uuid(),
-                'chatbot_id' => $chatbotId,
-                'chatbot_user_id' => $userId,
-                'variant' => 'chatbot',
-                'message' => $response['choices'][0]['message']['content'],
-            ]);
 
-            // ChatGPT'den gelen cevabı döndür
-            return response()->json(['message' => $response['choices'][0]['message']['content']]);
+
+            // try catch ile transaction başlat
+            try {
+                DB::beginTransaction();
+
+                // ChatGPT'ye soruyu sor
+                $response = $this->evaluateQuizViaChatGPT($chatbotPrompt, $question);
+
+                // ChatGPT'den gelen cevabı kaydet
+                ChatbotLog::create([
+                    'chatbot_id' => $chatbotId,
+                    'chatbot_user_id' => $userId,
+                    'variant' => 'chatbot',
+                    'message' => $response['choices'][0]['message']['content'],
+                ]);
+
+                // Kullanıcının sorduğu soruyu kaydet
+                ChatbotLog::create([
+                    'chatbot_id' => $chatbotId,
+                    'chatbot_user_id' => $userId,
+                    'variant' => 'user',
+                    'message' => $question,
+                ]);
+
+                // İşlem başarılı, commit yap
+                DB::commit();
+
+                // ChatGPT'den gelen cevabı döndür
+                return response()->json(['message' => $response['choices'][0]['message']['content']]);
+            } catch (\Throwable $th) {
+                // İşlem başarısız oldu, geri al
+                DB::rollback();
+
+                return response()->json([
+                    'type' => 'error',
+                    'message' => 'İşlem sırasında bir hata oluştu: ' . $th->getMessage(),
+                ], 500);
+            }
         }
         return response()->json(['message' => 'Soru cevabı başarıyla kaydedildi.']);
+    }
+
+    // Gönderilen token içindeki kullanıcıya göre chatbot_logs, chatbot_question_evaluations, chatbot_question_responses tablolarındaki ilgili kullanıcıya ait tüm verileri temizle
+    public function deleteEverything(Request $request)
+    {
+        $token = $request->token;
+        $result = $this->validateTokenAndExtractData($token);
+
+        if (isset($result['type']) && $result['type'] === 'error') {
+            // Token geçerli değil veya bir hata oluştu
+            return response()->json($result, 401);
+        } else {
+            // Token doğrulandı ve veriler alındı
+            $userId = $result['user_id'];
+
+            // try catch ile transaction başlat
+            try {
+                DB::beginTransaction();
+
+                // ChatbotLog tablosundan kullanıcıya ait tüm verileri sil
+                ChatbotLog::where('chatbot_user_id', $userId)->delete();
+
+                // ChatbotQuestionEvaluation tablosundan kullanıcıya ait tüm verileri sil
+                ChatbotQuestionEvaluation::where('chatbot_user_id', $userId)->delete();
+
+                // ChatbotQuestionResponse tablosundan kullanıcıya ait tüm verileri sil
+                ChatbotQuestionResponse::where('chatbot_user_id', $userId)->delete();
+
+                // İşlem başarılı, commit yap
+                DB::commit();
+
+                return response()->json(['message' => 'Tüm veriler silindi.']);
+            } catch (\Throwable $th) {
+                // İşlem başarısız oldu, geri al
+                DB::rollback();
+
+                return response()->json([
+                    'type' => 'error',
+                    'message' => 'İşlem sırasında bir hata oluştu: ' . $th->getMessage(),
+                ], 500);
+            }
+        }
     }
 }
