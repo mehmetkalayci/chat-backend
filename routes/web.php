@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    abort(404);
 });
 
 Route::get('/dashboard', function () {
@@ -33,7 +33,9 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified'])->prefix('chatbot')->group(function () {
     Route::get('/', [ChatbotController::class, 'index'])->name('chatbot.index');
-    Route::get('/{chatbot}', [ChatbotController::class, 'show'])->name('chatbot.show');
+    Route::get('/{chatbot}', [ChatbotController::class, 'edit'])->name('chatbot.edit');
+    Route::get('/{chatbot}/questions', [ChatbotController::class, 'questions'])->name('chatbot.questions');
+    Route::put('/{chatbot}', [ChatbotController::class, 'update'])->name('chatbot.update');
     Route::get('/create', [ChatbotController::class, 'create'])->name('chatbot.create');
 });
 

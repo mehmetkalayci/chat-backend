@@ -34,14 +34,6 @@ class ChatbotController extends Controller
     }
 
     /**
-     * Display the specified resource.
-     */
-    public function show(Chatbot $chatbot)
-    {
-        return view('chatbot.show', compact('chatbot'));
-    }
-
-    /**
      * Display the js of specified resource.
      */
     public function json(Chatbot $chatbot)
@@ -74,7 +66,11 @@ class ChatbotController extends Controller
      */
     public function edit(Chatbot $chatbot)
     {
-        //
+        if ($chatbot->labels == null) {
+            $veri = json_decode('{"inputPlaceholder":"Mesaj\u0131n\u0131z...","firstMessage":"Ho\u015fgeldiniz, ben yapay zeka asistan\u0131n\u0131z psikolog Enver.","floatingButton":"Sanal Asistan","close":"Kapat"}');
+            $chatbot->labels  = $veri;
+        }
+        return view('chatbot.edit', compact('chatbot'));
     }
 
     /**
@@ -82,7 +78,25 @@ class ChatbotController extends Controller
      */
     public function update(Request $request, Chatbot $chatbot)
     {
-        //
+        // validate request
+        $request->validate([
+            'name' => 'required',
+            'description' => 'required',
+            'inputPlaceholder' => 'required',
+            'firstMessage' => 'required',
+            'floatingButton' => 'required',
+            'close' => 'required',
+            'color' => 'required',
+            'horizontal_margin' => 'required|numeric',
+            'vertical_margin' => 'required|numeric',
+            'alignment' => 'required',
+            'login_url' => 'required',
+            'quiz_evaluation_prompt' => 'required',
+            'chatbot_prompt' => 'required',
+        ]);
+
+        $chatbot->update($request->all());
+        return redirect()->route('chatbot.edit', ['chatbot' => $chatbot->chatbot_id])->with('success', 'Veri başarıyla güncellendi.');
     }
 
     /**
@@ -91,5 +105,16 @@ class ChatbotController extends Controller
     public function destroy(Chatbot $chatbot)
     {
         //
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function questions(Chatbot $chatbot)
+    {
+        $chatbot_id = $chatbot->chatbot_id;
+        $questions = DB::table('chatbot_questions')->where('chatbot_id', $chatbot_id)->get();
+
+        return view('chatbot.questions', compact('questions', 'chatbot'));
     }
 }
