@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Chatbot;
+use App\Models\ChatbotQuestion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class ChatbotController extends Controller
 {
@@ -116,5 +118,54 @@ class ChatbotController extends Controller
         $questions = DB::table('chatbot_questions')->where('chatbot_id', $chatbot_id)->get();
 
         return view('chatbot.questions', compact('questions', 'chatbot'));
+    }
+
+    public function questionsUpdate(Chatbot $chatbot, Request $request)
+    {
+
+        $questionTypesNew = $request->input('type-new');
+        $questionValuesNew = $request->input('values-new');
+
+        $questionTypes = $request->input('type');
+        $questionValues = $request->input('values');
+
+        foreach ($questionValues as $questionId => $value) {
+            // Veritabanında ilgili chatbot_question_id'ye sahip kaydı bulun
+            $question = ChatbotQuestion::find($questionId);
+
+            // Eğer kayıt varsa, tipini güncelleyin
+            if ($question) {
+                $question->type = $questionTypes[$questionId];
+                $question->value = $value;
+                $question->save();
+            }
+        }
+
+        if ($questionTypesNew != null && $questionValuesNew != null) {
+            foreach ($questionValuesNew as $questionId => $value) {
+                // Create new question
+                $question = new ChatbotQuestion();
+                $question->chatbot_id = $chatbot->chatbot_id;
+                $question->type = $questionTypesNew[$questionId];
+                $question->value = $value;
+                $question->save();
+            }
+        }
+
+
+
+        return redirect()->route('chatbot.questions', ['chatbot' => $chatbot->chatbot_id])->with('success', 'Sorular/Mesajlar kaydedildi.');
+    }
+
+    public function deleteQuestion(Chatbot $chatbot, ChatbotQuestion $question, Request $request)
+    {
+        $questionId = $request->chatbot_question_id;
+
+        try {
+            ChatbotQuestion::where('chatbot_question_id', $questionId)->delete();
+            return redirect()->route('chatbot.questions', ['chatbot' => $chatbot->chatbot_id])->with('success', 'Soru silindi.');
+        } catch (\Throwable $th) {
+            return redirect()->route('chatbot.questions', ['chatbot' => $chatbot->chatbot_id])->with('error', 'Soru silinirken hata oluştu.' . $th->getMessage());
+        }
     }
 }

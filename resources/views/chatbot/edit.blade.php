@@ -97,12 +97,12 @@
 
                     <div class="mb-6">
                         <label for="inputPlaceholder" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Chatbot Yanıt Kutusu (Input Placeholder)</label>
-                        <input type="text" name="inputPlaceholder" id="inputPlaceholder" value="{{ json_decode($chatbot->labels)->close }}" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-sm-light" required>
+                        <input type="text" name="inputPlaceholder" id="inputPlaceholder" value="{{ json_decode($chatbot->labels)->inputPlaceholder }}" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-sm-light" required>
                     </div>
 
                     <div class="mb-6">
                         <label for="firstMessage" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">İlk Mesaj (Karşılama Mesajı)</label>
-                        <input type="text" name="firstMessage" id="firstMessage" value="{{ json_decode($chatbot->labels)->floatingButton }}" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-sm-light" required>
+                        <input type="text" name="firstMessage" id="firstMessage" value="{{ json_decode($chatbot->labels)->firstMessage }}" class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-sm-light" required>
                     </div>
 
                     <div class="mb-6">
@@ -217,7 +217,23 @@
     <script>
       ChatBotAI.init({
         id: "{{ $chatbot->chatbot_id }}",
-        apiBaseURL: "https://fortytwogame.com/api/chatbot"
+        apiBaseURL: "https://fortytwogame.com/api/chatbot",
+        options: {
+            "botName": "{{ $chatbot->name }}",
+            "description": "{{ $chatbot->description }}",
+            "labels": {
+                "inputPlaceholder": "{{ json_decode($chatbot->labels)->inputPlaceholder }}",
+                "firstMessage": "{{ json_decode($chatbot->labels)->firstMessage }}",
+                "floatingButton": "{{ json_decode($chatbot->labels)->floatingButton }}",
+                "close": "{{ json_decode($chatbot->labels)->close }}",
+            },
+            "color": "{{ $chatbot->color }}",
+            "alignment": "{{ $chatbot->alignment }}",
+            "horizontalMargin": {{ $chatbot->horizontal_margin }},
+            "verticalMargin": {{ $chatbot->vertical_margin }},
+            "showButtonLabel": {{ $chatbot->show_button_label ? 'true' : 'false' }},
+            "loginUrl": "{{ $chatbot->login_url }}"
+        },
       }).then(() => {
         //  Script is safely loaded, you can do whatever you want from here with bot
       });

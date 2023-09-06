@@ -75,7 +75,7 @@
 
 
             <div class="max-w-xxl">
-                <form action="{{ route('chatbot.update', $chatbot->chatbot_id) }}" method="POST">
+                <form action="{{ route('chatbot.questionsUpdate', $chatbot->chatbot_id) }}" method="POST">
                     @csrf
                     @method('PUT')
 
@@ -100,9 +100,9 @@
                                 <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                     <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                                         <div>
-                                            <select id="type-{{ $question->chatbot_question_id }}" name="type-[{{ $question->chatbot_question_id }}]" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                                                <option value="Mesaj" {{ $question->type == 'chatbot_message' ? 'selected' : ''}}>Mesaj</option>
-                                                <option value="Soru" {{ $question->type == 'chatbot_question' ? 'selected' : ''}}>Soru</option>
+                                            <select id="type-{{ $question->chatbot_question_id }}" name="type[{{ $question->chatbot_question_id }}]" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                                <option value="chatbot_message" {{ $question->type == 'chatbot_message' ? 'selected' : ''}}>Mesaj</option>
+                                                <option value="chatbot_question" {{ $question->type == 'chatbot_question' ? 'selected' : ''}}>Soru</option>
                                             </select>
                                         </div>
                                     </th>
@@ -112,13 +112,15 @@
                                         </div>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <a href="{{ route('chatbot.index') }}" class="font-medium text-red-600 dark:text-red-500 hover:underline">
-                                            {{$question->chatbot_question_id}} Sil
-                                        </a>
-                                        &nbsp;&nbsp;&nbsp;
-                                        <a href="{{ route('chatbot.index') }}" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
-                                            {{$question->chatbot_question_id}} Güncelle
-                                        </a>
+                                        <!-- <form method="POST" action="{{ route('chatbot.deleteQuestion', ['chatbot' => $chatbot, 'question' => $question]) }}"> -->
+                                        <!-- @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="inline-block p-2 text-red-600 rounded-lg hover:text-red-500">
+                                                Sil
+                                            </button> -->
+                                        <button type="button" class="delete-button inline-block p-2 text-red-600 rounded-lg hover:text-red-500" data-question-id="{{ $question->chatbot_question_id }}">
+                                            Sil
+                                        </button> <!-- </form> -->
                                     </td>
                                 </tr>
                                 @endforeach
@@ -126,32 +128,97 @@
                                     <th class="px-6 py-4"></th>
                                     <td class="px-6 py-4"></td>
                                     <td class="px-6 py-4">
-                                        <a href="{{ route('chatbot.index') }}" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">Satır Ekle</a>
+                                        <a href="#" class="ekleButton font-medium text-blue-600 dark:text-blue-500 hover:underline">Satır Ekle</a>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+                    <button type="submit" class="mt-6 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Kaydet</button>
                 </form>
-
             </div>
         </div>
     </div>
 </div>
 
+<!-- JavaScript ile silme işlemi -->
 <script>
-    // HTML'deki kapatma düğmesini yakalama
-    const closeButtons = document.querySelectorAll('#alert');
+    $(document).ready(function() {
+        $(document).on('click', '.delete-button', function() {
+            // Kullanıcıya silme işleminden önce bir onay sor
+            var confirmed = confirm('Bu soruyu/mesajı silmek istediğinize emin misiniz?');
 
-    // Her kapatma düğmesine tıklama olayı ekle
-    closeButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            // Kapatma düğmesinin üstündeki uyarıyı bul
-            const alert = button.closest('#alert');
+            if (confirmed) {
+                var questionId = $(this).attr('data-question-id');
 
-            // Uyarıyı gizle
-            alert.style.display = 'none';
+                if (typeof questionId === 'undefined') {
+                    // data-question-id özelliği varsa, satırı kaldırın
+                    $(this).closest('tr').remove();
+                }
+
+                // AJAX isteğiyle silme işlemi yapın
+                $.ajax({
+                    method: 'POST',
+                    url: '/chatbot/{{ $chatbot->chatbot_id }}/questions/', // Uygun URL'yi ayarlayın
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') // CSRF token'ı alın
+                    },
+                    data: {
+                        'chatbot_question_id': questionId,
+                        '_token': $('meta[name="csrf-token"]').attr('content'),
+                        '_method': 'DELETE' // DELETE işlemini simüle ediyoruz
+                    },
+                    success: function(response) {
+                        // Başarılı bir şekilde silindiğinde yapılacak işlemleri burada yapabilirsiniz
+                        console.log('Silme işlemi başarılı.');
+                        window.location.href = this.url;
+                        // İlgili satırı tablodan kaldırabilirsiniz veya sayfayı yenileyebilirsiniz.
+                    },
+                    error: function() {
+                        // Silme işlemi başarısız olduğunda yapılacak işlemleri burada yapabilirsiniz
+                        console.error('Silme işlemi başarısız.');
+                        window.location.href = this.url;
+
+                    }
+                });
+
+
+            }
+        });
+
+
+        // Satır ekleme işlemi
+        $(".ekleButton").click(function() {
+            // Yeni bir satır oluşturun
+            var newRow = $("<tr class='bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'></tr>");
+
+            // Satır içeriğini doldurun
+            newRow.html('<th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"> \
+                        <div> \
+                            <select name="type-new[]" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"> \
+                                <option value="chatbot_message">Mesaj</option> \
+                                <option value="chatbot_question" selected="">Soru</option> \
+                            </select> \
+                        </div> \
+                    </th> \
+                    <td class="px-6 py-4"> \
+                        <div> \
+                            <input type="text" name="values-new[]" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Sorunuz ya da Mesajınız" required=""> \
+                        </div> \
+                    </td> \
+                    <td class="px-6 py-4"> \
+                        <button type="button" class="delete-button inline-block p-2 text-red-600 rounded-lg hover:text-red-500"> \
+                            Sil \
+                        </button> \
+                    </td>');
+
+            // Yeni satırı tabloya ekleyin
+            $("table tr:last").before(newRow);
+            return false;
         });
     });
 </script>
+
+
+
 @endsection
