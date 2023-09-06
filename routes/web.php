@@ -40,6 +40,7 @@ Route::middleware(['auth', 'verified'])->prefix('chatbot')->group(function () {
     Route::put('/{chatbot}/questions', [ChatbotController::class, 'questionsUpdate'])->name('chatbot.questionsUpdate');
     Route::delete('/{chatbot}/questions', [ChatbotController::class, 'deleteQuestion'])->name('chatbot.deleteQuestion');
     Route::put('/{chatbot}', [ChatbotController::class, 'update'])->name('chatbot.update');
+    Route::delete('/{chatbot}/delete', [ChatbotController::class, 'destroy'])->name('chatbot.delete');
 });
 
 Route::get('chatbot/{chatbot}/config.json', [ChatbotController::class, 'json'])->name('chatbot.json');

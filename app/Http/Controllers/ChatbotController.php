@@ -154,7 +154,8 @@ class ChatbotController extends Controller
      */
     public function destroy(Chatbot $chatbot)
     {
-        //
+        $chatbot->delete();
+        return redirect()->route('chatbot.index')->with('success', 'Chatbot başarıyla silindi.');
     }
 
     /**
