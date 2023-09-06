@@ -32,7 +32,55 @@ class ChatbotController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        // validate request
+        $request->validate([
+            'name' => 'required',
+            'description' => 'required',
+            'inputPlaceholder' => 'required',
+            'firstMessage' => 'required',
+            'floatingButton' => 'required',
+            'close' => 'required',
+            'color' => 'required',
+            'horizontal_margin' => 'required|numeric',
+            'vertical_margin' => 'required|numeric',
+            'alignment' => 'required',
+            'login_url' => 'required',
+            'quiz_evaluation_prompt' => 'required',
+            'chatbot_prompt' => 'required',
+        ]);
+
+
+        // manually create a chatbot
+        $chatbot = new Chatbot();
+        $chatbot->chatbot_id = \Illuminate\Support\Str::uuid();
+        $chatbot->name = $request->name;
+        $chatbot->description = $request->description;
+        
+        $chatbot->labels = json_encode([
+            "inputPlaceholder" => $request->inputPlaceholder,
+            "firstMessage" => $request->firstMessage,
+            "floatingButton" => $request->floatingButton,
+            "close" => $request->close
+        ]);
+
+        $chatbot->color = $request->color;
+        $chatbot->show_button_label = $request->showButtonLabel == '1' ? true : false;
+        $chatbot->alignment = $request->alignment;
+        $chatbot->horizontal_margin = $request->horizontal_margin;
+        $chatbot->vertical_margin = $request->vertical_margin;
+        $chatbot->login_url = $request->login_url;
+        $chatbot->quiz_evaluation_prompt = $request->quiz_evaluation_prompt;
+        $chatbot->chatbot_prompt = $request->chatbot_prompt;
+        $chatbot->openai_api_key = '';
+
+        $chatbot_id =  $chatbot->chatbot_id;
+
+        // save chatbot and check if it was successful
+        if ($chatbot->save()) {
+            return redirect()->route('chatbot.edit', ['chatbot' => $chatbot_id])->with('success', 'Chatbot başarıyla kaydedildi.');
+        } else {
+            return redirect()->route('chatbot.create')->with('error', 'Veri kaydedilirken hata oluştu.');
+        }
     }
 
     /**

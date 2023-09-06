@@ -33,12 +33,13 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified'])->prefix('chatbot')->group(function () {
     Route::get('/', [ChatbotController::class, 'index'])->name('chatbot.index');
+    Route::get('/create', [ChatbotController::class, 'create'])->name('chatbot.create');
+    Route::post('/store', [ChatbotController::class, 'store'])->name('chatbot.store');
     Route::get('/{chatbot}', [ChatbotController::class, 'edit'])->name('chatbot.edit');
     Route::get('/{chatbot}/questions', [ChatbotController::class, 'questions'])->name('chatbot.questions');
     Route::put('/{chatbot}/questions', [ChatbotController::class, 'questionsUpdate'])->name('chatbot.questionsUpdate');
     Route::delete('/{chatbot}/questions', [ChatbotController::class, 'deleteQuestion'])->name('chatbot.deleteQuestion');
     Route::put('/{chatbot}', [ChatbotController::class, 'update'])->name('chatbot.update');
-    Route::get('/create', [ChatbotController::class, 'create'])->name('chatbot.create');
 });
 
 Route::get('chatbot/{chatbot}/config.json', [ChatbotController::class, 'json'])->name('chatbot.json');

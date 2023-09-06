@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Chatbot extends Model
 {
@@ -11,6 +12,7 @@ class Chatbot extends Model
     protected $primaryKey = 'chatbot_id';
 
     protected $fillable = [
+        'chatbot_id',
         'name',
         'description',
         'labels',
