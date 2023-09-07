@@ -159,7 +159,7 @@
                 // AJAX isteğiyle silme işlemi yapın
                 $.ajax({
                     method: 'POST',
-                    url: '/chatbot/{{ $chatbot->chatbot_id }}/questions/', // Uygun URL'yi ayarlayın
+                    url: '/chatbot/{{ $chatbot->chatbot_id }}/questions', // Uygun URL'yi ayarlayın
                     headers: {
                         'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') // CSRF token'ı alın
                     },
