@@ -83,6 +83,97 @@ class ChatbotController extends Controller
     }
 
     /**
+     * ChatGPT'ye soru sormak için kullan
+     */
+    private function questionClassification($userPrompt)
+    {
+        try {
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+                    'Content-Type' => 'application/json'
+                ])
+                ->timeout(60)
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    "model" => "gpt-3.5-turbo",
+                    "temperature" => 0.5,
+                    "messages" => [
+                        [
+                            "role" => "system",
+                            "content" => "Uzman bir bilişsel davranışçı terapist olarak davran. Olası durumları düşünün ve kullanıcının mesajı psikolojik danışmanlık kapsamında mı kontrol edin? Eğer öyleyse 1 değilse 0 değerini döndür."
+                        ],
+                        [
+                            "role" => "user",
+                            "content" => $userPrompt
+                        ]
+                    ],
+                    //"max_tokens" => 1000
+                ]);
+
+            return $response->json(); //['choices'][0]['message']['content'];
+        } catch (\Throwable $th) {
+            return response()->json([
+                'type' => 'error',
+                'message' => $th->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ChatGPT'ye geçmiş ile beraber soru sormak için kullan
+     */
+    private function askChatGPTwithHistory($systemPrompt, $question, $userId, $historyMessageLimit = 10)
+    {
+        try {
+            $messages = [];
+
+            // Sistem mesajını ekle
+            $messages[] = [
+                "role" => "system",
+                "content" => $systemPrompt
+            ];
+
+            // Kullanıcının mesajlarını al, son 5 mesajı al
+            $history = ChatbotLog::where('chatbot_user_id', $userId)->orderBy('log_id', 'asc')->limit($historyMessageLimit)->get();
+
+            // Mesajları veri yapısına ekleyin
+            foreach ($history as $index => $message) {
+                $messages[] = [
+                    'role' => $message->variant == 'chatbot' ? 'assistant' : 'user',
+                    'content' => $message->message
+                ];
+            }
+
+            // Kullanıcının mesajını ekle
+            $messages[] = [
+                "role" => "user",
+                "content" => $question
+            ];
+
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+                    'Content-Type' => 'application/json'
+                ])
+                ->timeout(60)
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    "model" => "gpt-3.5-turbo",
+                    "temperature" => 1,
+                    "messages" => $messages,
+                    //"max_tokens" => 1000
+                ]);
+
+            // Yapay zeka cevaplarını kullanıcı mesajlarına yerleştirin
+            return $response->json(); //['choices'][0]['message']['content'];
+        } catch (\Throwable $th) {
+            return response()->json([
+                'type' => 'error',
+                'message' => $th->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Chatbot ayarlarını çekmek için kullan
      */
     public function getSettings($chatbotId)
@@ -366,15 +457,14 @@ class ChatbotController extends Controller
             // $chatbot nesnesine ait chatbot_prompt değerini alın
             $chatbotPrompt = $chatbot->chatbot_prompt;
 
-
-
-
             // try catch ile transaction başlat
             try {
                 DB::beginTransaction();
 
                 // ChatGPT'ye soruyu sor
                 $response = $this->evaluateQuizViaChatGPT($chatbotPrompt, $question);
+
+                //$response = $this->askChatGPTwithHistory($chatbotPrompt, $question, $userId);
 
                 // ChatGPT'den gelen cevabı kaydet
                 ChatbotLog::create([
